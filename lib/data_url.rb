@@ -3,13 +3,24 @@ require "data_url/version"
 require "strscan"
 require "base64"
 
+# RFC2397 The "data" URL scheme
+# https://tools.ietf.org/html/rfc2397
 class DataUrl
   class Error < StandardError; end
   class ParseError < Error; end
 
+  # RFC2045 Multipurpose Internet Mail Extensions (MIME) Part One: Format of Internet Message Bodies
   # https://tools.ietf.org/html/rfc2045#section-5.1
   RFC2045_TOKEN = ("[[:ascii:]&&[:^cntrl:]&&[^" + Regexp.escape(%( ()<>@,;:\\"/[]?=)) + "]]+").freeze
   RFC2045_TOKEN_INCLUDES_TSPECIAL = "[[:ascii:]&&[:^cntrl:]]+".freeze
+
+  # RFC2396 Uniform Resource Identifiers (URI): Generic Syntax
+  # https://tools.ietf.org/html/rfc2396#section-2.3
+  RFC2396_NOT_UNRESERVED_CHARACTER = Regexp.compile(
+    (
+      "[^a-zA-Z0-9" + Regexp.escape("-_.!~*'()") + "]"
+    ).encode("ascii-8bit"),
+  ).freeze
 
   class << self
     # CGI.unescape/escape treats '+' in Base64 as space.
@@ -33,13 +44,7 @@ class DataUrl
     end
 
     def escape(s)
-      escape_required_char = Regexp.compile(
-        (
-          "[^a-zA-Z0-9" + Regexp.escape("-_.!~*'()") + "]"
-        ).encode("ascii-8bit"),
-      )
-
-      s.dup.force_encoding("ascii-8bit").gsub(escape_required_char) do |c|
+      s.dup.force_encoding("ascii-8bit").gsub(RFC2396_NOT_UNRESERVED_CHARACTER) do |c|
         "%" + c.ord.to_s(16).upcase.rjust(2, "0")
       end
     end
