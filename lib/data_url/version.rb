@@ -1,3 +1,3 @@
-module DataUrl
+class DataUrl
   VERSION = "0.1.0"
 end
