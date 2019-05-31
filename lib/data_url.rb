@@ -9,10 +9,11 @@ class DataUrl
 
   # https://tools.ietf.org/html/rfc2045#section-5.1
   RFC2045_TOKEN = ("[[:ascii:]&&[:^cntrl:]&&[^" + Regexp.escape(%( ()<>@,;:\\"/[]?=)) + "]]+").freeze
-  RFC2045_TOKEN_INCLUDES_TSPECIAL = ("[[:ascii:]&&[:^cntrl:]]+").freeze
+  RFC2045_TOKEN_INCLUDES_TSPECIAL = "[[:ascii:]&&[:^cntrl:]]+".freeze
 
   class << self
-    # CGI.unescape/escape だと Base64 に含まれる + をスペースと認識してしまうため percent encoding のみの escape を実装
+    # CGI.unescape/escape treats '+' in Base64 as space.
+    # These methods uses just percent encoding.
     def unescape(s)
       buffer = ""
       s = StringScanner.new(s)
@@ -35,12 +36,12 @@ class DataUrl
       escape_required_char = Regexp.compile(
         (
           "[^a-zA-Z0-9" + Regexp.escape("-_.!~*'()") + "]"
-        ).encode("ascii-8bit")
+        ).encode("ascii-8bit"),
       )
 
-      s.dup.force_encoding("ascii-8bit").gsub(escape_required_char){|c|
+      s.dup.force_encoding("ascii-8bit").gsub(escape_required_char) do |c|
         "%" + c.ord.to_s(16).upcase.rjust(2, "0")
-      }
+      end
     end
 
     def parse(str)
@@ -48,7 +49,7 @@ class DataUrl
       raise parse_error(s) unless s.scan(/data:/)
 
       # mediatype
-      if s.scan(%r(([^;,/]+)/([^;,]+)))
+      if s.scan(%r{([^;,/]+)/([^;,]+)})
         type = unescape(s[1])
         unless type =~ Regexp.compile("\\A" + RFC2045_TOKEN + "\\z")
           raise parse_error(s)
@@ -61,7 +62,7 @@ class DataUrl
       end
 
       parameters = {}
-      while s.scan(%r(;([^=;,]+)=([^;,]+)))
+      while s.scan(%r{;([^=;,]+)=([^;,]+)})
         attribute = unescape(s[1])
         unless attribute =~ Regexp.compile("\\A" + RFC2045_TOKEN + "\\z")
           raise parse_error(s)
@@ -75,7 +76,7 @@ class DataUrl
         parameters[attribute] = value
       end
 
-      base64 = !!s.scan(/;base64/)
+      base64 = s.scan(/;base64/) != nil
 
       unless s.scan(/,/)
         raise parse_error(s)
